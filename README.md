@@ -1,5 +1,5 @@
 # 用法
 
 sh g.sh
-or
+<br>
 sh s.sh
