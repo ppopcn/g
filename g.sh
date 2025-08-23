@@ -1,10 +1,3 @@
-好的，我理解了，需要完美适配这四个系统，包括Alpine Linux的OpenRC。
-
-我已经对脚本进行了修改，增加了对Alpine Linux的OpenRC服务管理方式的判断和处理。现在，脚本会根据检测到的操作系统类型，采用对应的服务管理方式来创建服务文件并设置开机自启。
-
-请看修改后的 `g.sh` 脚本：
-
-```bash
 #!/bin/bash
 
 # 默认参数
@@ -143,4 +136,3 @@ if [ "$SERVICE_MANAGER" == "systemd" ]; then
 elif [ "$SERVICE_MANAGER" == "openrc" ]; then
 	echo "您可以通过 'rc-service gost status' 查看服务状态。"
 fi
-```
