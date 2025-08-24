@@ -479,3 +479,5 @@ elif [ "$SERVICE_MANAGER" = "openrc" ]; then
     echo "4) 停止服务:"
     echo "   rc-service gost stop"
 fi
+echo -e "\n进程状态:"
+ps aux | grep -v grep | grep gost
