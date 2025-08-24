@@ -1,5 +1,10 @@
 # 用法
 
-sh g.sh
+debian/ubuntu/centos/alpine
 <br>
-sh s.sh
+gost sh g.sh
+<br>
+go-shadowsocks2 sh s.sh
+<br>
+shadowsocks-rust sh ssr.sh
+
