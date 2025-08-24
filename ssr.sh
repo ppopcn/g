@@ -380,7 +380,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=${INSTALL_DIR}/ssserver -s "[::]:${PORT}" -m "${METHOD}" -k "${PASSWD}"
+ExecStart=${INSTALL_DIR}/ssserver -s "[::]:${PORT}" -m "${METHOD}" -U -k "${PASSWD}"
 StandardError=append:/var/log/shadowsocks-rust.error.log
 Restart=always
 RestartSec=3
@@ -421,7 +421,7 @@ elif [ "$SERVICE_MANAGER" = "openrc" ]; then
 name="shadowsocks-rust"
 description="Shadowsocks-rust proxy service"
 command="${INSTALL_DIR}/ssserver"
-command_args="-s \"[::]:${PORT}\" -m \"${METHOD}\" -k \"${PASSWD}\""
+command_args="-s \"[::]:${PORT}\" -m \"${METHOD}\" -U -k \"${PASSWD}\""
 command_background="yes"
 pidfile="/run/shadowsocks-rust.pid"
 output_log="/var/log/shadowsocks-rust.error.log"
