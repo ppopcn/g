@@ -97,66 +97,89 @@ fi
 
 # 清理函数：清理所有旧的安装
 cleanup_old_installation() {
-    echo "正在清理旧的 Shadowsocks 安装 (go-shadowsocks2 或 shadowsocks-rust)..."
+    echo "正在清理旧的服务安装、二进制文件和残留进程..."
 
-    # 1. 停止并删除系统服务 (go-shadowsocks2 - 兼容旧名称)
+    # 定义所有可能的服务名称
+    local -a service_names=("shadowsocks" "shadowsocks-rust" "gost")
+    # 定义所有可能的二进制文件路径
+    local -a binary_paths=("/root/shadowsocks2-linux" "/usr/local/bin/ssserver" "/root/gost")
+    # 定义所有可能的进程名 (用于pgrep/pkill)
+    local -a process_names=("shadowsocks2-linux" "ssserver" "gost")
+    # 定义所有可能的PID文件路径
+    local -a pid_files=("/var/run/shadowsocks.pid" "/var/run/shadowsocks-rust.pid" "/var/run/gost.pid")
+
+
+    # 1. 停止并删除系统服务
+    echo "清理 systemd / OpenRC 服务..."
+    for name in "${service_names[@]}"; do
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl is-active --quiet "$name" || systemctl is-enabled --quiet "$name"; then
+                echo "    - 停止并禁用 systemd 服务: $name"
+                systemctl stop "$name" >/dev/null 2>&1
+                systemctl disable "$name" >/dev/null 2>&1
+            fi
+            if [ -f "/etc/systemd/system/$name.service" ]; then
+                echo "    - 删除 systemd 服务文件: /etc/systemd/system/$name.service"
+                rm -f "/etc/systemd/system/$name.service"
+            fi
+        fi
+
+        if command -v rc-service >/dev/null 2>&1; then
+            if rc-service "$name" status >/dev/null 2>&1; then # 检查OpenRC服务是否存在或运行
+                echo "    - 停止并禁用 OpenRC 服务: $name"
+                rc-service "$name" stop >/dev/null 2>&1
+                rc-update del "$name" default >/dev/null 2>&1
+            fi
+            if [ -f "/etc/init.d/$name" ]; then
+                echo "    - 删除 OpenRC 服务文件: /etc/init.d/$name"
+                rm -f "/etc/init.d/$name"
+            fi
+        fi
+    done
+
+    # 重新加载 systemd daemon (如果systemctl存在)
     if command -v systemctl >/dev/null 2>&1; then
-        echo "清理 systemd 服务 (旧 shadowsocks)..."
-        systemctl stop shadowsocks >/dev/null 2>&1
-        systemctl disable shadowsocks >/dev/null 2>&1
-        rm -f /etc/systemd/system/shadowsocks.service
         systemctl daemon-reload
     fi
 
-    if command -v rc-service >/dev/null 2>&1; then
-        echo "清理 OpenRC 服务 (旧 shadowsocks)..."
-        rc-service shadowsocks stop >/dev/null 2>&1
-        rc-update del shadowsocks default >/dev/null 2>&1
-        rm -f /etc/init.d/shadowsocks
-    fi
-
-    # 1. 停止并删除系统服务 (shadowsocks-rust - 新服务名称)
-    if command -v systemctl >/dev/null 2>&1; then
-        echo "清理 systemd 服务 (shadowsocks-rust)..."
-        systemctl stop shadowsocks-rust >/dev/null 2>&1
-        systemctl disable shadowsocks-rust >/dev/null 2>&1
-        rm -f /etc/systemd/system/shadowsocks-rust.service
-        systemctl daemon-reload
-    fi
-
-    if command -v rc-service >/dev/null 2>&1; then
-        echo "清理 OpenRC 服务 (shadowsocks-rust)..."
-        rc-service shadowsocks-rust stop >/dev/null 2>&1
-        rc-update del shadowsocks-rust default >/dev/null 2>&1
-        rm -f /etc/init.d/shadowsocks-rust
-    fi
 
     # 2. 删除旧的二进制文件
-    if [ -f "/usr/local/bin/ssserver" ]; then # ssrrust通常安装在全局路径
-        echo "删除旧的 ssserver 程序..."
-        rm -f "/usr/local/bin/ssserver"
-    fi
-    if [ -f "/root/shadowsocks2-linux" ]; then # go-shadowsocks2
-        echo "删除旧的 shadowsocks2-linux 程序..."
-        rm -f "/root/shadowsocks2-linux"
-    fi
+    echo "清理旧的二进制程序..."
+    for bin_path in "${binary_paths[@]}"; do
+        if [ -f "$bin_path" ]; then
+            echo "    - 删除二进制文件: $bin_path"
+            rm -f "$bin_path"
+        fi
+    done
+
 
     # 3. 清理可能存在的进程
-    if pgrep ssserver >/dev/null; then
-        echo "终止残留的 ssserver 进程..."
-        pkill ssserver
-    fi
-    if pgrep shadowsocks2-linux >/dev/null; then
-        echo "终止残留的 shadowsocks2-linux 进程..."
-        pkill shadowsocks2-linux
-    fi
+    echo "终止残留进程..."
+    for p_name in "${process_names[@]}"; do
+        if pgrep -f "$p_name" >/dev/null; then # 使用 -f 全匹配路径，更精确
+            echo "    - 终止残留进程: $p_name"
+            pkill -f "$p_name"
+            sleep 1 # 等待进程终止
+            if pgrep -f "$p_name" >/dev/null; then # 再次检查是否已经终止
+                echo "      警告: 进程 $p_name 未能完全终止，尝试强制终止..."
+                pkill -9 -f "$p_name"
+            fi
+        fi
+    done
+
 
     # 4. 清理PID文件
-    rm -f /var/run/shadowsocks.pid >/dev/null 2>&1
-    rm -f /var/run/shadowsocks-rust.pid >/dev/null 2>&1
+    echo "清理PID文件..."
+    for pid_file in "${pid_files[@]}"; do
+        if [ -f "$pid_file" ]; then
+            echo "    - 删除PID文件: $pid_file"
+            rm -f "$pid_file"
+        fi
+    done
 
     echo "清理完成。"
 }
+
 
 # 在开始安装前执行清理
 cleanup_old_installation
