@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # 脚本版本
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 # 全局变量
 SELECTED_IMPLEMENTATION=""
@@ -22,6 +22,7 @@ show_welcome() {
     echo "  • go-shadowsocks2 - Go语言实现"
     echo "  • shadowsocks-rust - Rust语言实现"
     echo ""
+    echo "系统要求：需要 bash 支持（会自动检查）"
     echo "注意：如果您在使用云服务器，请确保在云服务商控制面板中已设置安全组规则，放行相应端口。"
     echo ""
 }
@@ -450,32 +451,32 @@ execute_installation() {
         # 使用默认配置
         case $SELECTED_IMPLEMENTATION in
             "gost")
-                echo "执行命令: sh g.sh"
-                sh g.sh
+                echo "执行命令: bash g.sh"
+                bash g.sh
                 ;;
             "go-shadowsocks2")
-                echo "执行命令: sh s.sh"
-                sh s.sh
+                echo "执行命令: bash s.sh"
+                bash s.sh
                 ;;
             "shadowsocks-rust")
-                echo "执行命令: sh ssr.sh"
-                sh ssr.sh
+                echo "执行命令: bash ssr.sh"
+                bash ssr.sh
                 ;;
         esac
     else
         # 使用自定义配置
         case $SELECTED_IMPLEMENTATION in
             "gost")
-                echo "执行命令: sh g.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
-                sh g.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
+                echo "执行命令: bash g.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
+                bash g.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
                 ;;
             "go-shadowsocks2")
-                echo "执行命令: sh s.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
-                sh s.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
+                echo "执行命令: bash s.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
+                bash s.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
                 ;;
             "shadowsocks-rust")
-                echo "执行命令: sh ssr.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
-                sh ssr.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
+                echo "执行命令: bash ssr.sh -port ${CUSTOM_PORT} -passwd ${CUSTOM_PASSWD} -method ${CUSTOM_METHOD}"
+                bash ssr.sh -port "${CUSTOM_PORT}" -passwd "${CUSTOM_PASSWD}" -method "${CUSTOM_METHOD}"
                 ;;
         esac
     fi
@@ -486,8 +487,22 @@ execute_installation() {
     echo "======================================"
 }
 
+# 检查 bash 环境
+check_bash_support() {
+    if ! command -v bash >/dev/null 2>&1; then
+        echo "错误：系统中未找到 bash"
+        echo "请先安装 bash："
+        echo "  • Debian/Ubuntu: apt update && apt install -y bash"
+        echo "  • CentOS/RHEL: yum install -y bash 或 dnf install -y bash"
+        echo "  • Alpine: apk add bash"
+        exit 1
+    fi
+}
+
 # 主函数
 main() {
+    # 检查 bash 环境
+    check_bash_support
     # 显示欢迎界面
     show_welcome
     
