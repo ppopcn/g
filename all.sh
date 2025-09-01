@@ -243,7 +243,7 @@ custom_configuration() {
         if [ -z "$port_input" ]; then
             CUSTOM_PORT="8989"
             break
-        elif [[ "$port_input" =~ ^[0-9]+$ ]] && [ "$port_input" -ge 1 ] && [ "$port_input" -le 65535 ]; then
+        elif echo "$port_input" | grep -q '^[0-9]\+$' && [ "$port_input" -ge 1 ] && [ "$port_input" -le 65535 ]; then
             CUSTOM_PORT="$port_input"
             break
         else
@@ -382,23 +382,23 @@ execute_installation() {
 
 # 检查依赖脚本
 check_dependencies() {
-    local missing_scripts=()
+    local missing_scripts=""
     
     if [ ! -f "g.sh" ]; then
-        missing_scripts+=("g.sh")
+        missing_scripts="${missing_scripts}g.sh "
     fi
     
     if [ ! -f "s.sh" ]; then
-        missing_scripts+=("s.sh")
+        missing_scripts="${missing_scripts}s.sh "
     fi
     
     if [ ! -f "ssr.sh" ]; then
-        missing_scripts+=("ssr.sh")
+        missing_scripts="${missing_scripts}ssr.sh "
     fi
     
-    if [ ${#missing_scripts[@]} -gt 0 ]; then
+    if [ -n "$missing_scripts" ]; then
         echo -e "${RED}错误：缺少必要的脚本文件！${NC}"
-        echo -e "${RED}缺少的文件: ${missing_scripts[*]}${NC}"
+        echo -e "${RED}缺少的文件: ${missing_scripts}${NC}"
         echo -e ""
         echo -e "${YELLOW}请确保以下文件存在于当前目录：${NC}"
         echo -e "  • g.sh (GOST 安装脚本)"
