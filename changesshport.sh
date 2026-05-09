@@ -1,26 +1,16 @@
 #!/bin/sh
 
 # 自动修改SSH端口脚本（POSIX兼容）
-# 使用方法: curl -fsSL https://raw.githubusercontent.com/ppopcn/g/refs/heads/main/changesshport.sh | bash
+# 使用方法: curl -fsSL https://raw.githubusercontent.com/ppopcn/g/refs/heads/main/changesshport.sh | bash -s -- {PORT}
 
-# 检查是否通过管道运行（非交互模式）
-if [ ! -t 0 ]; then
-    # 非交互模式：从参数或环境变量获取端口
-    if [ -n "$1" ]; then
-        SSH_PORT="$1"
-    elif [ -n "$SSH_PORT" ]; then
-        # 环境变量已设置
-        :
-    else
-        echo "错误: 非交互模式下需要提供端口号"
-        echo "使用方法: curl -fsSL ... | bash -s -- {PORT}"
-        exit 1
-    fi
-else
-    # 交互模式：提示用户输入
-    echo "请输入要修改的SSH端口号 (1-65535):"
-    read SSH_PORT
+# 从参数获取端口
+if [ -z "$1" ]; then
+    echo "错误: 请提供端口号"
+    echo "使用方法: curl -fsSL ... | bash -s -- {PORT}"
+    exit 1
 fi
+
+SSH_PORT="$1"
 
 # 验证端口号是否合法
 if [ -z "$SSH_PORT" ]; then
