@@ -1,18 +1,18 @@
 #!/bin/sh
 
 # 自动修改SSH端口脚本（POSIX兼容）
-# 使用方法: ./changesshport.sh {PORT} 或 sh changesshport.sh {PORT}
+# 使用方法: curl -fsSL https://raw.githubusercontent.com/ppopcn/g/refs/heads/main/changesshport.sh | bash
 
-# 检查是否提供了端口号
-if [ -z "$1" ]; then
-    echo "错误: 请提供端口号"
-    echo "使用方法: $0 {PORT}"
+# 交互式输入端口号
+echo "请输入要修改的SSH端口号 (1-65535):"
+read SSH_PORT
+
+# 验证端口号是否合法
+if [ -z "$SSH_PORT" ]; then
+    echo "错误: 未输入端口号"
     exit 1
 fi
 
-SSH_PORT="$1"
-
-# 验证端口号是否合法
 case "$SSH_PORT" in
     ''|*[!0-9]*)
         echo "错误: 端口号必须是1-65535之间的数字"
@@ -56,7 +56,10 @@ detect_os() {
 OS_TYPE=$(detect_os)
 
 echo "检测到系统类型: $OS_TYPE"
-echo "正在修改SSH端口为: $SSH_PORT"
+echo "将修改SSH端口为: $SSH_PORT"
+echo ""
+echo "按回车键确认并继续，或按 Ctrl+C 取消..."
+read confirm
 
 # 初始化系统：安装基础组件
 echo "初始化系统：安装基础组件..."
