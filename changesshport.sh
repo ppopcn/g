@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-# 自动修改SSH端口脚本
+# 自动修改SSH端口脚本（POSIX兼容）
 # 使用方法: ./changesshport.sh {PORT} 或 sh changesshport.sh {PORT}
 
 # 检查是否提供了端口号
@@ -10,13 +10,21 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-SSH_PORT=$1
+SSH_PORT="$1"
 
 # 验证端口号是否合法
-if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [ "$SSH_PORT" -lt 1 ] || [ "$SSH_PORT" -gt 65535 ]; then
-    echo "错误: 端口号必须是1-65535之间的数字"
-    exit 1
-fi
+case "$SSH_PORT" in
+    ''|*[!0-9]*)
+        echo "错误: 端口号必须是1-65535之间的数字"
+        exit 1
+        ;;
+    *)
+        if [ "$SSH_PORT" -lt 1 ] || [ "$SSH_PORT" -gt 65535 ]; then
+            echo "错误: 端口号必须是1-65535之间的数字"
+            exit 1
+        fi
+        ;;
+esac
 
 # 检测系统类型
 detect_os() {
@@ -50,6 +58,39 @@ OS_TYPE=$(detect_os)
 echo "检测到系统类型: $OS_TYPE"
 echo "正在修改SSH端口为: $SSH_PORT"
 
+# 初始化系统：安装基础组件
+echo "初始化系统：安装基础组件..."
+
+case "$OS_TYPE" in
+    centos)
+        # CentOS/RHEL系列基础组件
+        if command -v yum >/dev/null 2>&1; then
+            yum install -y bash curl wget net-tools iproute 2>/dev/null
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y bash curl wget net-tools iproute2 2>/dev/null
+        fi
+        ;;
+        
+    ubuntu|debian)
+        # Ubuntu/Debian系列基础组件
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "更新apt包索引..."
+            DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>/dev/null
+            echo "安装基础组件..."
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl wget bash sudo net-tools iproute2 2>/dev/null
+        fi
+        ;;
+        
+    alpine)
+        # Alpine系列基础组件
+        if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache bash curl wget net-tools iproute2 2>/dev/null
+        fi
+        ;;
+esac
+
+echo "基础组件安装完成"
+
 # 备份SSH配置文件
 echo "备份SSH配置文件..."
 if [ -f /etc/ssh/sshd_config ]; then
@@ -61,11 +102,14 @@ fi
 
 # 修改SSH配置文件
 echo "修改SSH配置..."
-sed -i "s/^#*Port [0-9]*/Port $SSH_PORT/" /etc/ssh/sshd_config
-
-# 如果没有找到Port配置行，则添加
-if ! grep -q "^Port " /etc/ssh/sshd_config; then
-    echo "Port $SSH_PORT" >> /etc/ssh/sshd_config
+if grep -q "^Port " /etc/ssh/sshd_config; then
+    sed -i "s/^Port .*/Port $SSH_PORT/" /etc/ssh/sshd_config
+else
+    if grep -q "^#Port " /etc/ssh/sshd_config; then
+        sed -i "s/^#Port .*/Port $SSH_PORT/" /etc/ssh/sshd_config
+    else
+        echo "Port $SSH_PORT" >> /etc/ssh/sshd_config
+    fi
 fi
 
 # 根据系统类型执行相应操作
@@ -73,64 +117,80 @@ case "$OS_TYPE" in
     centos)
         echo "CentOS/RedHat系统处理中..."
         
-        # 安装SELinux管理工具（如果未安装）
-        if ! command -v semanage &> /dev/null; then
-            yum install -y policycoreutils-python-utils
+        # 禁用SELinux
+        echo "禁用SELinux..."
+        setenforce 0 2>/dev/null
+        if [ -f /etc/selinux/config ]; then
+            sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config 2>/dev/null
         fi
         
-        # SELinux设置
-        if command -v semanage &> /dev/null; then
-            echo "配置SELinux允许新端口..."
-            semanage port -a -t ssh_port_t -p tcp $SSH_PORT 2>/dev/null || \
-            semanage port -m -t ssh_port_t -p tcp $SSH_PORT
-        fi
-        
-        # 防火墙设置
-        if command -v firewall-cmd &> /dev/null; then
+        # 防火墙设置 - 优先使用firewalld
+        if command -v firewall-cmd >/dev/null 2>&1; then
             echo "配置firewalld防火墙..."
-            firewall-cmd --permanent --add-port=$SSH_PORT/tcp
-            firewall-cmd --reload
-        elif command -v iptables &> /dev/null; then
+            firewall-cmd --permanent --add-port="$SSH_PORT"/tcp 2>/dev/null
+            firewall-cmd --reload 2>/dev/null
+        elif command -v iptables >/dev/null 2>&1; then
             echo "配置iptables防火墙..."
-            iptables -I INPUT -p tcp --dport $SSH_PORT -j ACCEPT
-            service iptables save
+            iptables -I INPUT -p tcp --dport "$SSH_PORT" -j ACCEPT 2>/dev/null
+            service iptables save 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
         fi
         
         # 重启SSH服务
-        systemctl restart sshd
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null
+        elif command -v service >/dev/null 2>&1; then
+            service sshd restart 2>/dev/null || service ssh restart 2>/dev/null
+        fi
         ;;
         
     ubuntu)
         echo "Ubuntu/Debian系统处理中..."
         
-        # 防火墙设置
-        if command -v ufw &> /dev/null; then
+        # 防火墙设置 - 优先使用UFW
+        if command -v ufw >/dev/null 2>&1; then
             echo "配置UFW防火墙..."
-            ufw allow $SSH_PORT/tcp
-        elif command -v iptables &> /dev/null; then
+            ufw allow "$SSH_PORT"/tcp 2>/dev/null
+        elif command -v iptables >/dev/null 2>&1; then
             echo "配置iptables防火墙..."
-            iptables -I INPUT -p tcp --dport $SSH_PORT -j ACCEPT
-            iptables-save > /etc/iptables/rules.v4
+            iptables -I INPUT -p tcp --dport "$SSH_PORT" -j ACCEPT 2>/dev/null
+            if [ -f /etc/iptables/rules.v4 ]; then
+                iptables-save > /etc/iptables/rules.v4 2>/dev/null
+            fi
         fi
         
         # 重启SSH服务
-        systemctl restart ssh
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl restart ssh 2>/dev/null
+        elif command -v service >/dev/null 2>&1; then
+            service ssh restart 2>/dev/null
+        fi
         ;;
         
     alpine)
         echo "Alpine系统处理中..."
         
-        # 防火墙设置 (Alpine使用nftables)
-        if command -v nft &> /dev/null; then
+        # 防火墙设置 - Alpine使用nftables或iptables
+        if command -v nft >/dev/null 2>&1; then
             echo "配置nftables防火墙..."
-            nft add rule inet filter input tcp dport $SSH_PORT accept
-        elif command -v iptables &> /dev/null; then
+            nft add rule inet filter input tcp dport "$SSH_PORT" accept 2>/dev/null
+            # 保存规则
+            nft list ruleset > /etc/nftables.conf 2>/dev/null
+        elif command -v iptables >/dev/null 2>&1; then
             echo "配置iptables防火墙..."
-            iptables -I INPUT -p tcp --dport $SSH_PORT -j ACCEPT
+            iptables -I INPUT -p tcp --dport "$SSH_PORT" -j ACCEPT 2>/dev/null
+            # 安装iptables-save工具（如果未安装）
+            if ! command -v iptables-save >/dev/null 2>&1; then
+                apk add --no-cache iptables 2>/dev/null
+            fi
+            iptables-save > /etc/iptables.rules 2>/dev/null
         fi
         
         # 重启SSH服务
-        rc-service sshd restart
+        if command -v rc-service >/dev/null 2>&1; then
+            rc-service sshd restart 2>/dev/null
+        elif command -v service >/dev/null 2>&1; then
+            service sshd restart 2>/dev/null
+        fi
         ;;
         
     *)
