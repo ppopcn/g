@@ -531,3 +531,57 @@ elif [ "$SERVICE_MANAGER" = "openrc" ]; then
 fi
 echo -e "\n进程状态:"
 ps aux | grep -v grep | grep gost
+
+# 公网地址与 ss 参数输出
+IP_ADDRESS="unknown"
+if command -v curl >/dev/null 2>&1; then
+    IP_ADDRESS=$(curl -4 -s --max-time 10 https://ip.sb 2>/dev/null)
+    if [ -z "$IP_ADDRESS" ]; then
+        IP_ADDRESS=$(curl -4 -s --max-time 10 https://ipv4.icanhazip.com 2>/dev/null)
+    fi
+fi
+if [ -z "$IP_ADDRESS" ]; then
+    IP_ADDRESS="unknown"
+fi
+
+SS_LINK="ss://"
+if command -v base64 >/dev/null 2>&1; then
+    SS_LINK="ss://$(printf '%s' "${METHOD}:${PASSWD}" | base64 | tr -d '\n')@${IP_ADDRESS}:${PORT}"
+else
+    SS_LINK="ss://${METHOD}:${PASSWD}@${IP_ADDRESS}:${PORT}"
+fi
+
+echo -e "\nss 参数:"
+echo "IP地址: ${IP_ADDRESS}"
+echo "端口: ${PORT}"
+echo "密码: ${PASSWD}"
+echo "协议: ${METHOD}"
+echo "链接: ${SS_LINK}"
+
+
+# 公网地址与 ss 参数输出
+IP_ADDRESS="unknown"
+if command -v curl >/dev/null 2>&1; then
+    IP_ADDRESS=$(curl -4 -s --max-time 10 https://ip.sb 2>/dev/null)
+    if [ -z "$IP_ADDRESS" ]; then
+        IP_ADDRESS=$(curl -4 -s --max-time 10 https://ipv4.icanhazip.com 2>/dev/null)
+    fi
+fi
+if [ -z "$IP_ADDRESS" ]; then
+    IP_ADDRESS="unknown"
+fi
+
+SS_LINK="ss://"
+if command -v base64 >/dev/null 2>&1; then
+    SS_LINK="ss://$(printf '%s' "${METHOD}:${PASSWD}" | base64 | tr -d '\n')@${IP_ADDRESS}:${PORT}"
+else
+    SS_LINK="ss://${METHOD}:${PASSWD}@${IP_ADDRESS}:${PORT}"
+fi
+
+echo -e "\nss 参数:"
+echo "IP地址: ${IP_ADDRESS}"
+echo "端口: ${PORT}"
+echo "密码: ${PASSWD}"
+echo "协议: ${METHOD}"
+echo "链接: ${SS_LINK}"
+
